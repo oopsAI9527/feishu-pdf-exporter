@@ -8,6 +8,7 @@ Chrome extension for exporting readable Feishu/Lark documents as clean PDF or si
 - Export the current Feishu document to a single `.md` file with images embedded as `data:image/...;base64`.
 - Save multiple NotebookLM notebook targets by URL or notebook ID.
 - Import the current Feishu document as PDF into a selected NotebookLM notebook.
+- Prevent importing the same generated PDF name into the same saved notebook more than once.
 - Keep Feishu extraction, PDF/Markdown export, and NotebookLM import as separate modules.
 
 ## How It Works
@@ -15,6 +16,7 @@ Chrome extension for exporting readable Feishu/Lark documents as clean PDF or si
 - `src/page-export.js` runs in the Feishu page main world and reads `window.PageMain.blockManager.rootBlockModel`.
 - `src/print.html` and `src/print.js` render a clean PDF page before `Page.printToPDF`.
 - `src/notebook-store.js` stores NotebookLM target names and IDs in `chrome.storage.local`.
+- `src/import-history-store.js` records which generated PDF names have already been submitted to each notebook.
 - `src/import-job-store.js` stores large temporary PDF import jobs in chunks using extension IndexedDB plus `chrome.storage.session` metadata.
 - `src/notebook-importer.js` runs inside NotebookLM and locates the upload entry; the background worker uses Chrome Debugger/CDP to set the generated PDF on the native file chooser.
 

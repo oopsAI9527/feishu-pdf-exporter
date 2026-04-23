@@ -6,6 +6,11 @@ import {
   getImportJobMeta,
 } from './import-job-store.js'
 import {
+  hasImportedSource,
+  importedNotebookIdsForSource,
+  recordImportedSource,
+} from './import-history-store.js'
+import {
   getNotebook,
   isNotebookUrl,
   listNotebooks,
@@ -33,6 +38,14 @@ function sanitizeFilename(input = 'feishu-document') {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 160) || 'feishu-document'
+}
+
+function sourceTitleFromTab(tab) {
+  return sanitizeFilename(
+    String(tab?.title || 'feishu-document')
+      .replace(/\s*-\s*飞书云文档\s*$/i, '')
+      .replace(/\s*-\s*Lark\s*$/i, ''),
+  )
 }
 
 function sleep(ms) {
@@ -653,9 +666,18 @@ async function importCurrentFeishuDocumentToNotebook(notebookId, sourceTabId = n
   let tempDownload = null
 
   try {
+    const expectedFilename = `${sourceTitleFromTab(tab)}.pdf`
+    if (await hasImportedSource(notebook.notebookId, expectedFilename)) {
+      throw new Error(`已导入过这个文档：${expectedFilename}`)
+    }
+
     await cleanupExpiredJobs()
     await notifyPage(tab.id, `正在生成 PDF，准备导入到 ${notebook.name}...`)
     const pdf = await generatePdfFromTab(tab)
+
+    if (await hasImportedSource(notebook.notebookId, pdf.filename)) {
+      throw new Error(`已导入过这个文档：${pdf.filename}`)
+    }
 
     await notifyPage(tab.id, `正在后台打开 NotebookLM：${notebook.name}...`)
     const notebookTab = await chrome.tabs.create({
@@ -695,6 +717,15 @@ async function importCurrentFeishuDocumentToNotebook(notebookId, sourceTabId = n
 
     await notifyPage(tab.id, `已在后台提交到 NotebookLM：${notebook.name}`, 'success')
 
+    await recordImportedSource({
+      notebookId: notebook.notebookId,
+      notebookName: notebook.name,
+      sourceName: pdf.filename,
+      sourceTitle: pdf.title,
+      sourceUrl: tab.url,
+      byteSize: jobMeta?.byteSize || tempDownload?.fileSize || 0,
+    })
+
     return {
       ok: true,
       notebook,
@@ -720,9 +751,17 @@ async function getPopupState() {
   const activeTab = await getContextTab()
   const url = activeTab?.url || ''
   const currentNotebookId = isNotebookUrl(url) ? parseNotebookId(url) : ''
+  const currentSourceName = activeTab && isSupportedUrl(url) ? `${sourceTitleFromTab(activeTab)}.pdf` : ''
+  const importedNotebookIds = currentSourceName ? await importedNotebookIdsForSource(currentSourceName) : []
 
   return {
     ok: true,
+    currentSource: currentSourceName
+      ? {
+        name: currentSourceName,
+        importedNotebookIds,
+      }
+      : null,
     activeTab: activeTab
       ? {
         id: activeTab.id,

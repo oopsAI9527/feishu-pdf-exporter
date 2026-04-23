@@ -71,13 +71,31 @@ function renderNotebooks(notebooks = []) {
   }
 
   list.className = ''
+  const importedNotebookIds = new Set(state?.currentSource?.importedNotebookIds || [])
+  const firstAvailableIndex = notebooks.findIndex(notebook => !importedNotebookIds.has(notebook.notebookId))
+
   list.innerHTML = notebooks.map((notebook, index) => `
     <label class="notebook-row">
-      <input type="radio" name="target-notebook" value="${escapeHtml(notebook.notebookId)}" ${index === 0 ? 'checked' : ''} />
-      <span title="${escapeHtml(notebook.notebookId)}">${escapeHtml(notebook.name)}</span>
+      <input
+        type="radio"
+        name="target-notebook"
+        value="${escapeHtml(notebook.notebookId)}"
+        ${index === firstAvailableIndex ? 'checked' : ''}
+        ${importedNotebookIds.has(notebook.notebookId) ? 'disabled' : ''}
+      />
+      <span title="${escapeHtml(notebook.notebookId)}">
+        ${escapeHtml(notebook.name)}${importedNotebookIds.has(notebook.notebookId) ? '（已导入）' : ''}
+      </span>
       <button class="danger" data-remove-notebook="${escapeHtml(notebook.notebookId)}" type="button">删除</button>
     </label>
   `).join('')
+
+  if (firstAvailableIndex < 0 && state?.currentSource?.name) {
+    list.insertAdjacentHTML(
+      'beforeend',
+      `<p class="hint">当前文档 ${escapeHtml(state.currentSource.name)} 已导入到所有已保存 Notebook。</p>`,
+    )
+  }
 
   for (const button of list.querySelectorAll('[data-remove-notebook]')) {
     button.addEventListener('click', async event => {
