@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Feishu Document Exporter",
-  "version": "0.3.0",
-  "description": "一键导出飞书文档为完整 PDF 或 Markdown 文件",
-  "permissions": ["activeTab", "tabs", "downloads", "scripting", "debugger"],
+  "version": "0.4.0",
+  "description": "一键导出飞书文档为 PDF/Markdown，并导入指定 NotebookLM",
+  "permissions": ["activeTab", "tabs", "downloads", "scripting", "debugger", "storage"],
   "host_permissions": [
     "https://*.feishu.cn/*",
     "https://*.larksuite.com/*",
-    "https://*.bytedance.net/*"
+    "https://*.bytedance.net/*",
+    "https://notebooklm.google.com/*"
   ],
   "background": {
     "service_worker": "src/background.js",
@@ -19,7 +20,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["src/page-export.js", "src/print.html", "src/print.js"],
+      "resources": ["src/page-export.js", "src/print.html", "src/print.js", "src/notebook-importer.js"],
       "matches": ["<all_urls>"]
     }
   ]

@@ -1,53 +1,66 @@
 # Feishu Document Exporter
 
-Chrome 扩展，用于把飞书文档直接导出成完整 PDF 或单文件 Markdown，方便喂给 NotebookLM。
+Chrome extension for exporting readable Feishu/Lark documents as clean PDF or single-file Markdown, with an optional NotebookLM import flow.
 
 ## Features
 
-- 直接复用飞书页面运行时：`window.PageMain`、`rootBlockModel`、`#mainBox .bear-web-x-container`
-- 直接读取飞书 `rootBlockModel`，生成结构化正文 HTML 或 Markdown
-- 图片块通过飞书 `imageManager` 拉取原图；PDF 内嵌图片，Markdown 使用 `data:image/...;base64` 内嵌图片
-- 使用 Chrome DevTools `Page.printToPDF` 直接生成 PDF，不走系统打印对话框
-- 自动下载单个 `.pdf` 或 `.md` 文件，不生成压缩包
-- 支持 `feishu.cn`、`larksuite.com`、`bytedance.net`
+- Export the current Feishu document to a single `.pdf` file.
+- Export the current Feishu document to a single `.md` file with images embedded as `data:image/...;base64`.
+- Save multiple NotebookLM notebook targets by URL or notebook ID.
+- Import the current Feishu document as PDF into a selected NotebookLM notebook.
+- Keep Feishu extraction, PDF/Markdown export, and NotebookLM import as separate modules.
 
-## Installation
+## How It Works
 
-1. Open `chrome://extensions`
-2. Enable `Developer mode`
-3. Click `Load unpacked`
-4. Select this folder
+- `src/page-export.js` runs in the Feishu page main world and reads `window.PageMain.blockManager.rootBlockModel`.
+- `src/print.html` and `src/print.js` render a clean PDF page before `Page.printToPDF`.
+- `src/notebook-store.js` stores NotebookLM target names and IDs in `chrome.storage.local`.
+- `src/import-job-store.js` stores large temporary PDF import jobs in chunks using extension IndexedDB plus `chrome.storage.session` metadata.
+- `src/notebook-importer.js` runs inside NotebookLM and locates the upload entry; the background worker uses Chrome Debugger/CDP to set the generated PDF on the native file chooser.
 
-## Usage
+## Load in Chrome
 
-1. Open a Feishu document page
-2. 等页面基础内容加载出来
-3. 点击扩展图标
-4. 选择 `导出 PDF` 或 `导出 Markdown（内嵌图片）`
-5. 扩展会自动等待内容加载、生成文件、并直接开始下载
+1. Open `chrome://extensions`.
+2. Enable `Developer mode`.
+3. Click `Load unpacked`.
+4. Select this repository folder.
 
-## Technical Notes
+No build step is required.
 
-- 页内预处理逻辑参考 `cloud-document-converter` 对 Feishu `docx` 页的识别方式
-- `src/page-export.js` 运行在页面主世界，用来判断文档是否就绪，并从 `rootBlockModel` 生成结构化 HTML/Markdown
-- `src/print.html` + `src/print.js` 负责渲染结构化 HTML，避免直接打印飞书原页面时被其固定布局污染
-- `src/background.js` 负责调度结构化导出、打开打印页、调用 `chrome.debugger` 的 `Page.printToPDF`，或直接下载 Markdown
-- 文件下载由 `chrome.downloads.download()` 完成
+## Use
 
-## Local Self-Test
+### Export PDF or Markdown
 
-浏览器已用 `--remote-debugging-port=9222` 启动时，可以直接运行：
+1. Open a readable Feishu `wiki` or `docx` page.
+2. Click the extension icon.
+3. Choose `导出 PDF` or `导出 Markdown（内嵌图片）`.
 
-```bash
-npm run test:direct-pdf
-npm run test:markdown
-```
+### Save a NotebookLM Target
 
-脚本会连接当前打开的飞书页面，执行与扩展同一套结构化导出流程，再输出测试产物到 `artifacts/`。
+Option A:
 
-## Current Limits
+1. Open a NotebookLM notebook page, for example `https://notebooklm.google.com/notebook/<id>`.
+2. Click the extension icon.
+3. Enter a display name, then click `保存当前 Notebook`.
 
-- 本版依赖飞书 `PageMain.rootBlockModel`，如果飞书后续改掉内部模型，需要同步调整适配层
-- 极端复杂自定义块可能会降级成文本占位
-- 图片下载依赖当前登录态和飞书图片接口权限
-- Markdown 内嵌 base64 图片是单文件方案，但 NotebookLM 对 Markdown data URI 图片的识别效果需要按实际导入结果确认；PDF 是更稳的图片保真方案
+Option B:
+
+1. Click the extension icon on any supported page.
+2. Use `手动添加 Notebook`.
+3. Enter a display name and a NotebookLM URL or notebook ID.
+
+### Import Feishu Document to NotebookLM
+
+1. Open the Feishu document page.
+2. Click the extension icon.
+3. Select the target notebook.
+4. Click `导入当前飞书 PDF 到选中 Notebook`.
+
+The extension generates a PDF first, writes a temporary import PDF, opens the selected NotebookLM notebook in a background tab, and submits the PDF through NotebookLM's native upload flow. If the native file chooser route fails, it falls back to the chunked in-memory import job.
+
+## Limits
+
+- NotebookLM upload automation depends on the current NotebookLM web UI. If the upload DOM changes, the fallback is to export PDF and upload manually.
+- The extension confirms that the PDF has been submitted to the NotebookLM upload input, not that NotebookLM has finished indexing it.
+- Very large PDFs above the safety threshold are not auto-imported; export and upload manually instead.
+- Complex Feishu custom blocks may degrade to text placeholders.
