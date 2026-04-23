@@ -1,0 +1,7 @@
+*
+
+!.gitignore
+!README.md
+!manifest.json
+!src/
+!src/**

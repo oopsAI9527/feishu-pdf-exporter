@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Feishu PDF Print</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 0;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #ffffff;
+      }
+
+      body {
+        color: #111827;
+        font: 14px/1.6 "Microsoft YaHei", "微软雅黑", SimSun, "宋体", sans-serif;
+      }
+
+      #status {
+        padding: 24px;
+        color: #4b5563;
+      }
+
+      #snapshot-shell {
+        display: none;
+      }
+
+      #snapshot-shell.ready {
+        display: block;
+      }
+
+      .text-document {
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 820px;
+        margin: 0 auto;
+        padding: 18mm 14mm;
+        color: #111827;
+        font-family: "Microsoft YaHei", "微软雅黑", SimSun, "宋体", sans-serif;
+        font-size: 14px;
+        line-height: 1.7;
+      }
+
+      .text-document h1,
+      .text-document h2,
+      .text-document h3,
+      .text-document h4,
+      .text-document h5,
+      .text-document h6 {
+        margin: 1.2em 0 0.55em;
+        line-height: 1.35;
+        page-break-after: avoid;
+      }
+
+      .text-document p,
+      .text-document ul,
+      .text-document ol,
+      .text-document blockquote,
+      .text-document pre,
+      .text-document figure {
+        margin: 0 0 0.9em;
+      }
+
+      .text-document ul,
+      .text-document ol {
+        padding-left: 1.5em;
+      }
+
+      .text-document blockquote {
+        padding-left: 1em;
+        border-left: 3px solid #d1d5db;
+        color: #374151;
+      }
+
+      .text-document hr {
+        border: 0;
+        border-top: 1px solid #e5e7eb;
+        margin: 1.4em 0;
+      }
+
+      .text-document pre {
+        overflow: hidden;
+        padding: 12px 14px;
+        border-radius: 8px;
+        background: #f3f4f6;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .text-document .feishu-image {
+        padding: 12px 14px;
+        border: 1px dashed #cbd5e1;
+        border-radius: 8px;
+        background: #f8fafc;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
+      .text-document .feishu-image img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        margin: 0 auto;
+      }
+
+      .text-document .feishu-image-placeholder,
+      .text-document .feishu-note {
+        color: #475569;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="status">正在装配打印页面...</div>
+    <main id="snapshot-shell"></main>
+    <script src="print.js"></script>
+  </body>
+</html>

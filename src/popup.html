@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Feishu Exporter</title>
+    <style>
+      body {
+        box-sizing: border-box;
+        width: 260px;
+        margin: 0;
+        padding: 14px;
+        color: #111827;
+        font: 13px/1.5 "Microsoft YaHei", "微软雅黑", sans-serif;
+      }
+
+      h1 {
+        margin: 0 0 10px;
+        font-size: 15px;
+        line-height: 1.35;
+      }
+
+      button {
+        display: block;
+        width: 100%;
+        margin: 8px 0 0;
+        padding: 9px 10px;
+        border: 0;
+        border-radius: 8px;
+        background: #111827;
+        color: #fff;
+        cursor: pointer;
+        font: inherit;
+      }
+
+      button.secondary {
+        background: #2563eb;
+      }
+
+      button:disabled {
+        cursor: wait;
+        opacity: 0.6;
+      }
+
+      #status {
+        min-height: 18px;
+        margin-top: 10px;
+        color: #4b5563;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>导出当前飞书文档</h1>
+    <button id="export-pdf" type="button">导出 PDF</button>
+    <button id="export-markdown" class="secondary" type="button">导出 Markdown（内嵌图片）</button>
+    <div id="status"></div>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Feishu Document Exporter",
+  "version": "0.3.0",
+  "description": "一键导出飞书文档为完整 PDF 或 Markdown 文件",
+  "permissions": ["activeTab", "tabs", "downloads", "scripting", "debugger"],
+  "host_permissions": [
+    "https://*.feishu.cn/*",
+    "https://*.larksuite.com/*",
+    "https://*.bytedance.net/*"
+  ],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "导出飞书文档",
+    "default_popup": "src/popup.html"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["src/page-export.js", "src/print.html", "src/print.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
