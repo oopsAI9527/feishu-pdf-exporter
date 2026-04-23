@@ -3,7 +3,7 @@ let state = null
 
 function setBusy(busy) {
   for (const button of document.querySelectorAll('button')) {
-    button.disabled = busy
+    button.disabled = busy || button.dataset.locked === 'true'
   }
 }
 
@@ -71,33 +71,18 @@ function renderNotebooks(notebooks = []) {
   }
 
   list.className = ''
-  const importedNotebookIds = new Set(state?.currentSource?.importedNotebookIds || [])
-  const firstAvailableIndex = notebooks.findIndex(notebook => !importedNotebookIds.has(notebook.notebookId))
-
-  list.innerHTML = notebooks.map((notebook, index) => {
-    const imported = importedNotebookIds.has(notebook.notebookId)
-    return `
-    <label class="notebook-row ${imported ? 'imported' : ''}" title="${imported ? '当前飞书文档已导入到这个 Notebook，不能重复导入。' : ''}">
+  list.innerHTML = notebooks.map((notebook, index) => `
+    <label class="notebook-row">
       <input
         type="radio"
         name="target-notebook"
         value="${escapeHtml(notebook.notebookId)}"
-        ${index === firstAvailableIndex ? 'checked' : ''}
-        ${imported ? 'disabled' : ''}
+        ${index === 0 ? 'checked' : ''}
       />
       <span class="notebook-name" title="${escapeHtml(notebook.name)}">${escapeHtml(notebook.name)}</span>
-      ${imported ? '<strong class="status-badge">已导入</strong>' : ''}
       <button class="danger" data-remove-notebook="${escapeHtml(notebook.notebookId)}" type="button">删除</button>
     </label>
-  `
-  }).join('')
-
-  if (firstAvailableIndex < 0 && state?.currentSource?.name) {
-    list.insertAdjacentHTML(
-      'beforeend',
-      `<p class="hint">当前文档 ${escapeHtml(state.currentSource.name)} 已导入到所有已保存 Notebook。</p>`,
-    )
-  }
+  `).join('')
 
   for (const button of list.querySelectorAll('[data-remove-notebook]')) {
     button.addEventListener('click', async event => {
@@ -114,14 +99,31 @@ function renderState(nextState) {
   const saveSection = document.getElementById('save-current-section')
   const exportSection = document.getElementById('export-section')
   const importSection = document.getElementById('import-section')
+  const currentNotebookName = document.getElementById('current-notebook-name')
+  const saveCurrentNotebookButton = document.getElementById('save-current-notebook')
+  const currentNotebookHint = document.getElementById('current-notebook-hint')
+  const currentNotebookSaved = Boolean(state.currentNotebook?.saved)
 
   saveSection.classList.toggle('hidden', !activeTab?.isNotebook)
   exportSection.classList.toggle('hidden', !activeTab?.isFeishu)
   importSection.classList.toggle('hidden', !activeTab?.isFeishu)
 
   if (activeTab?.isNotebook) {
-    document.getElementById('current-notebook-name').value =
+    currentNotebookName.value = state.currentNotebook?.savedName ||
       (activeTab.title || '').replace(/\s*-\s*NotebookLM\s*$/i, '').trim()
+    currentNotebookName.disabled = currentNotebookSaved
+    saveCurrentNotebookButton.dataset.locked = currentNotebookSaved ? 'true' : 'false'
+    saveCurrentNotebookButton.disabled = currentNotebookSaved
+    saveCurrentNotebookButton.textContent = currentNotebookSaved ? '当前 Notebook 已缓存' : '保存当前 Notebook'
+    currentNotebookHint.textContent = currentNotebookSaved
+      ? '这个 Notebook 已在插件目标列表中，不会重复保存。'
+      : ''
+  } else {
+    currentNotebookName.disabled = false
+    saveCurrentNotebookButton.dataset.locked = 'false'
+    saveCurrentNotebookButton.disabled = false
+    saveCurrentNotebookButton.textContent = '保存当前 Notebook'
+    currentNotebookHint.textContent = ''
   }
 
   renderNotebooks(state.notebooks)
@@ -135,6 +137,11 @@ async function saveCurrentNotebook() {
   const activeTab = state?.activeTab
   if (!activeTab?.isNotebook) {
     setStatus('当前页面不是 NotebookLM notebook。')
+    return
+  }
+
+  if (state?.currentNotebook?.saved) {
+    setStatus('当前 Notebook 已缓存，无需重复保存。')
     return
   }
 

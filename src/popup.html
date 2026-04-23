@@ -98,27 +98,12 @@
         border-radius: 8px;
       }
 
-      .notebook-row.imported {
-        background: #f9fafb;
-        color: #6b7280;
-      }
-
       .notebook-name {
         flex: 1;
         min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-      }
-
-      .status-badge {
-        flex: 0 0 auto;
-        padding: 2px 6px;
-        border-radius: 999px;
-        background: #dcfce7;
-        color: #166534;
-        font-size: 11px;
-        font-weight: 600;
       }
 
       .hint {
@@ -141,6 +126,7 @@
       <label for="current-notebook-name">保存当前 Notebook 名称</label>
       <input id="current-notebook-name" type="text" placeholder="例如：A项目" />
       <button id="save-current-notebook" class="secondary" type="button">保存当前 Notebook</button>
+      <div id="current-notebook-hint" class="hint"></div>
     </section>
 
     <section id="manual-section">
