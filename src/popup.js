@@ -74,21 +74,23 @@ function renderNotebooks(notebooks = []) {
   const importedNotebookIds = new Set(state?.currentSource?.importedNotebookIds || [])
   const firstAvailableIndex = notebooks.findIndex(notebook => !importedNotebookIds.has(notebook.notebookId))
 
-  list.innerHTML = notebooks.map((notebook, index) => `
-    <label class="notebook-row">
+  list.innerHTML = notebooks.map((notebook, index) => {
+    const imported = importedNotebookIds.has(notebook.notebookId)
+    return `
+    <label class="notebook-row ${imported ? 'imported' : ''}" title="${imported ? '当前飞书文档已导入到这个 Notebook，不能重复导入。' : ''}">
       <input
         type="radio"
         name="target-notebook"
         value="${escapeHtml(notebook.notebookId)}"
         ${index === firstAvailableIndex ? 'checked' : ''}
-        ${importedNotebookIds.has(notebook.notebookId) ? 'disabled' : ''}
+        ${imported ? 'disabled' : ''}
       />
-      <span title="${escapeHtml(notebook.notebookId)}">
-        ${escapeHtml(notebook.name)}${importedNotebookIds.has(notebook.notebookId) ? '（已导入）' : ''}
-      </span>
+      <span class="notebook-name" title="${escapeHtml(notebook.name)}">${escapeHtml(notebook.name)}</span>
+      ${imported ? '<strong class="status-badge">已导入</strong>' : ''}
       <button class="danger" data-remove-notebook="${escapeHtml(notebook.notebookId)}" type="button">删除</button>
     </label>
-  `).join('')
+  `
+  }).join('')
 
   if (firstAvailableIndex < 0 && state?.currentSource?.name) {
     list.insertAdjacentHTML(
