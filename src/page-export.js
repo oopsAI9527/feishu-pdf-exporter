@@ -164,6 +164,26 @@
     })
   }
 
+  async function fetchUrlAsDataUrl(src) {
+    if (!src) {
+      return null
+    }
+
+    try {
+      const response = await fetch(src, {
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        return src
+      }
+
+      return await blobToDataUrl(await response.blob())
+    } catch (error) {
+      return src
+    }
+  }
+
   async function fetchImageSources(block) {
     const image = block?.snapshot?.image
     const manager = block?.imageManager
@@ -212,19 +232,7 @@
       return null
     }
 
-    try {
-      const response = await fetch(src, {
-        credentials: 'include',
-      })
-
-      if (!response.ok) {
-        return src
-      }
-
-      return await blobToDataUrl(await response.blob())
-    } catch (error) {
-      return src
-    }
+    return await fetchUrlAsDataUrl(src)
   }
 
   async function renderImageBlock(block) {
@@ -261,7 +269,79 @@
     return `<p class="feishu-note">[${escapeHtml(label)}${body}]</p>`
   }
 
-  async function renderList(blocks, ordered, startIndex = 0) {
+  async function loadFallbackSheetImages() {
+    const nodes = Array.from(
+      document.querySelectorAll('.docx-image-block .gpf-biz-action-manager-forbidden-placeholder'),
+    )
+
+    const images = []
+    for (const node of nodes) {
+      const block = node.closest('.docx-image-block')
+      const img = block?.querySelector('img')
+      const src = img?.getAttribute('src') || img?.src || ''
+      if (!src) {
+        continue
+      }
+
+      images.push({
+        alt: img?.getAttribute('alt') || '附件内容',
+        src: await fetchUrlAsDataUrl(src),
+        width: Number(img?.getAttribute('width')) || img?.naturalWidth || 0,
+        height: Number(img?.getAttribute('height')) || img?.naturalHeight || 0,
+      })
+    }
+
+    return images
+  }
+
+  async function ensureRenderState(state) {
+    if (state?.fallbackSheetImages) {
+      return state
+    }
+
+    const nextState = state || {}
+    nextState.fallbackSheetImages = await loadFallbackSheetImages()
+    nextState.fallbackSheetIndex = nextState.fallbackSheetIndex || 0
+    return nextState
+  }
+
+  async function renderFallbackBlock(block, state) {
+    if (block?.snapshot?.type !== 'sheet') {
+      return renderUnsupportedBlock(block, '附件内容')
+    }
+
+    const nextState = await ensureRenderState(state)
+    const image = nextState.fallbackSheetImages[nextState.fallbackSheetIndex]
+    nextState.fallbackSheetIndex += 1
+
+    if (!image?.src) {
+      return renderUnsupportedBlock(block, '附件内容')
+    }
+
+    const dimensions = image.width && image.height
+      ? ` width="${Math.max(1, Math.round(image.width))}" height="${Math.max(1, Math.round(image.height))}"`
+      : ''
+
+    return `<figure class="feishu-image"><img src="${escapeHtml(image.src)}" alt="${escapeHtml(image.alt || '附件内容')}"${dimensions} /></figure>`
+  }
+
+  async function renderFallbackMarkdown(block, state) {
+    if (block?.snapshot?.type !== 'sheet') {
+      return `[附件内容]`
+    }
+
+    const nextState = await ensureRenderState(state)
+    const image = nextState.fallbackSheetImages[nextState.fallbackSheetIndex]
+    nextState.fallbackSheetIndex += 1
+
+    if (!image?.src) {
+      return `[附件内容]`
+    }
+
+    return `![${escapeMarkdownAlt(image.alt || '附件内容')}](${image.src})`
+  }
+
+  async function renderList(blocks, ordered, startIndex = 0, state = {}) {
     const tag = ordered ? 'ol' : 'ul'
     let index = startIndex
     let html = `<${tag}>`
@@ -278,7 +358,7 @@
       }
 
       const text = blockText(block)
-      const childrenHtml = await renderBlocks(blockChildren(block))
+      const childrenHtml = await renderBlocks(blockChildren(block), state)
       const todoPrefix =
         block.type === 'todo'
           ? block?.snapshot?.done
@@ -298,7 +378,7 @@
     }
   }
 
-  async function renderBlocks(blocks = []) {
+  async function renderBlocks(blocks = [], state = {}) {
     const flattened = flattenBlocks(blocks)
     let html = ''
 
@@ -311,14 +391,14 @@
       }
 
       if (block.type === 'bullet' || block.type === 'todo') {
-        const list = await renderList(flattened, false, index)
+        const list = await renderList(flattened, false, index, state)
         html += list.html
         index = list.nextIndex
         continue
       }
 
       if (block.type === 'ordered') {
-        const list = await renderList(flattened, true, index)
+        const list = await renderList(flattened, true, index, state)
         html += list.html
         index = list.nextIndex
         continue
@@ -345,7 +425,7 @@
         }
         case 'callout':
         case 'quote_container': {
-          const inner = await renderBlocks(blockChildren(block))
+          const inner = await renderBlocks(blockChildren(block), state)
           if (inner) {
             html += `<blockquote>${inner}</blockquote>`
           }
@@ -366,6 +446,10 @@
         case 'table':
         case 'grid': {
           html += renderUnsupportedBlock(block, block.type === 'table' ? '表格' : '分栏')
+          break
+        }
+        case 'fallback': {
+          html += await renderFallbackBlock(block, state)
           break
         }
         case 'file': {
@@ -396,7 +480,7 @@
     return html
   }
 
-  async function renderMarkdownList(blocks, ordered, startIndex = 0, depth = 0) {
+  async function renderMarkdownList(blocks, ordered, startIndex = 0, depth = 0, state = {}) {
     let index = startIndex
     let markdown = ''
     let listNumber = 1
@@ -420,7 +504,7 @@
             ? '[x] '
             : '[ ] '
           : ''
-      const childMarkdown = await renderMarkdownBlocks(blockChildren(block), depth + 1)
+      const childMarkdown = await renderMarkdownBlocks(blockChildren(block), depth + 1, state)
 
       markdown += `${marker}${todoPrefix}${text}`.trimEnd()
 
@@ -439,7 +523,7 @@
     }
   }
 
-  async function renderMarkdownBlocks(blocks = [], depth = 0) {
+  async function renderMarkdownBlocks(blocks = [], depth = 0, state = {}) {
     const flattened = flattenBlocks(blocks)
     let markdown = ''
 
@@ -452,14 +536,14 @@
       }
 
       if (block.type === 'bullet' || block.type === 'todo') {
-        const list = await renderMarkdownList(flattened, false, index, depth)
+        const list = await renderMarkdownList(flattened, false, index, depth, state)
         markdown += list.markdown
         index = list.nextIndex
         continue
       }
 
       if (block.type === 'ordered') {
-        const list = await renderMarkdownList(flattened, true, index, depth)
+        const list = await renderMarkdownList(flattened, true, index, depth, state)
         markdown += list.markdown
         index = list.nextIndex
         continue
@@ -486,7 +570,7 @@
         }
         case 'callout':
         case 'quote_container': {
-          const inner = await renderMarkdownBlocks(blockChildren(block), depth + 1)
+          const inner = await renderMarkdownBlocks(blockChildren(block), depth + 1, state)
           if (inner.trim()) {
             markdown += `${inner.trimEnd().split('\n').map(line => `> ${line}`).join('\n')}\n\n`
           }
@@ -507,6 +591,10 @@
         case 'table':
         case 'grid': {
           markdown += `[${block.type === 'table' ? '表格' : '分栏'}${text ? `：${text}` : ''}]\n\n`
+          break
+        }
+        case 'fallback': {
+          markdown += `${await renderFallbackMarkdown(block, state)}\n\n`
           break
         }
         case 'file': {
