@@ -38,6 +38,7 @@ async function exportActiveTab(format) {
     await sendMessage({
       type: 'EXPORT_ACTIVE_TAB',
       format,
+      sourceTabId: state?.activeTab?.isFeishu ? state.activeTab.id : null,
     })
 
     setStatus('已开始下载。')

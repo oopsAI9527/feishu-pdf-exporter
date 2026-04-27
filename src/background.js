@@ -39,6 +39,12 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+function mostRecentlyAccessedTab(tabs = []) {
+  return [...tabs].sort((left, right) => {
+    return Number(right?.lastAccessed || 0) - Number(left?.lastAccessed || 0)
+  })[0] || null
+}
+
 async function ensurePageExporter(tabId) {
   await chrome.scripting.executeScript({
     target: { tabId },
@@ -410,9 +416,11 @@ async function getTargetTab() {
   const tabs = await chrome.tabs.query({
     lastFocusedWindow: true,
   })
+  const supportedTabs = tabs.filter(candidate => isSupportedUrl(candidate.url || ''))
 
   return (
-    tabs.find(candidate => isSupportedUrl(candidate.url || '')) ||
+    tabs.find(candidate => candidate.active && isSupportedUrl(candidate.url || '')) ||
+    mostRecentlyAccessedTab(supportedTabs) ||
     tabs.find(candidate => candidate.active) ||
     null
   )
@@ -423,12 +431,13 @@ async function getContextTab() {
     lastFocusedWindow: true,
   })
   const activeTab = tabs.find(tab => tab.active) || null
+  const contextTabs = tabs.filter(tab => isSupportedUrl(tab.url || '') || isNotebookUrl(tab.url || ''))
 
   if (activeTab && (isSupportedUrl(activeTab.url || '') || isNotebookUrl(activeTab.url || ''))) {
     return activeTab
   }
 
-  return tabs.find(tab => isSupportedUrl(tab.url || '') || isNotebookUrl(tab.url || '')) || activeTab
+  return mostRecentlyAccessedTab(contextTabs) || activeTab
 }
 
 async function getFeishuTab() {
@@ -436,7 +445,9 @@ async function getFeishuTab() {
     lastFocusedWindow: true,
   })
 
-  return tabs.find(candidate => isSupportedUrl(candidate.url || '')) || null
+  return mostRecentlyAccessedTab(
+    tabs.filter(candidate => isSupportedUrl(candidate.url || '')),
+  )
 }
 
 async function resolveFeishuTab(sourceTabId) {
@@ -748,8 +759,11 @@ async function getPopupState() {
   }
 }
 
-async function exportActiveTab(format = 'pdf') {
-  const tab = await getTargetTab()
+async function exportActiveTab(format = 'pdf', sourceTabId = null) {
+  const tab = sourceTabId
+    ? await resolveFeishuTab(sourceTabId)
+    : await getTargetTab()
+
   if (!tab) {
     throw new Error('未找到当前激活标签页。')
   }
@@ -874,7 +888,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message?.type === 'EXPORT_ACTIVE_TAB') {
-    exportActiveTab(message.format === 'markdown' ? 'markdown' : 'pdf')
+    exportActiveTab(message.format === 'markdown' ? 'markdown' : 'pdf', message.sourceTabId)
       .then(result => sendResponse(result))
       .catch(error => {
         sendResponse({
